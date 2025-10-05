@@ -41,7 +41,7 @@ export default function Home() {
       </motion.h1>
 
       <motion.p
-        className="text-lg md:text-xl text-zinc-400 mb-10"
+        className="text-lg md:text-xl mb-10 text-white"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1.2, duration: 0.8 }}
