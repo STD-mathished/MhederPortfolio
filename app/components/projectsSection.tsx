@@ -3,169 +3,177 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
-import { projects, type Project } from "@/lib/projects";
-
-// shadcn/ui
-import { Card, CardHeader, CardContent, CardFooter } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-
-const categories = [
-  { key: "all", label: "Tous" },
-  { key: "front", label: "Front-end" },
-  { key: "fullstack", label: "Full stack" },
-  { key: "tooling", label: "Tooling" },
-  { key: "jeu", label: "jeu" },
-] as const;
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { ArrowUpRight, Github } from "lucide-react";
+import {
+  projects,
+  projectCategories,
+  projectCategoryLabels,
+  projectsSection,
+} from "@/lib/data";
+import type { Project, ProjectFilterKey } from "@/types/datatypes";
+import { Reveal, RevealItem, EASE } from "./motion";
+import SectionHeading from "./sectionHeading";
 
 export default function ProjectsSection() {
-  const [tab, setTab] = useState<(typeof categories)[number]["key"]>("all");
+  const [filter, setFilter] = useState<ProjectFilterKey>("all");
+  const reduced = useReducedMotion();
 
-  const list = useMemo(() => {
-    if (tab === "all") return projects;
-    return projects.filter((p) => p.category === tab);
-  }, [tab]);
+  const list = useMemo(
+    () => (filter === "all" ? projects : projects.filter((p) => p.category === filter)),
+    [filter]
+  );
 
   return (
-    <section id="projects" className="container mx-auto px-4 py-16 md:py-24">
-      <div className="mb-8 md:mb-12 text-center">
-        <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Projets</h2>
-        <p className="text-zinc-500 dark:text-zinc-400 mt-2">
-          Sélection de mes projets récents.
-        </p>
+    <section id="projets" className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
+      <Reveal>
+        <SectionHeading
+          eyebrow={projectsSection.eyebrow}
+          title={projectsSection.title}
+          subtitle={projectsSection.subtitle}
+        />
+      </Reveal>
+
+      {/* Filtres — défilement horizontal sur mobile */}
+      <div className="-mx-4 mt-10 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div
+          role="group"
+          aria-label={projectsSection.filtersLabel}
+          className="flex w-max gap-1 rounded-full border border-border bg-card/50 p-1 backdrop-blur"
+        >
+          {projectCategories.map((category) => {
+            const active = filter === category.key;
+            return (
+              <button
+                key={category.key}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setFilter(category.key)}
+                className={`relative rounded-full px-4 py-2 text-sm whitespace-nowrap transition-colors ${
+                  active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="project-filter-pill"
+                    transition={{ duration: reduced ? 0 : 0.3, ease: EASE }}
+                    className="absolute inset-0 rounded-full border border-border bg-accent"
+                  />
+                )}
+                <span className="relative">{category.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-<Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="mb-8">
-  <TabsList
-    className="
-      mx-auto w-fit p-1 rounded-full
-      bg-zinc-100/70 dark:bg-zinc-900/40
-      border border-zinc-200 dark:border-zinc-800
-      shadow-sm backdrop-blur
-      flex flex-wrap gap-1
-    "
-  >
-    {categories.map((c) => (
-      <TabsTrigger
-        key={c.key}
-        value={c.key}
-        className="
-          px-4 py-2 rounded-full
-          text-zinc-700 dark:text-zinc-300
-          hover:text-zinc-900 dark:hover:text-white
-          data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800
-          data-[state=active]:text-zinc-900 dark:data-[state=active]:text-white
-          data-[state=active]:shadow-sm
-          transition
-        "
+      <motion.ul
+        layout={!reduced}
+        className="mt-8 grid gap-5 sm:mt-10 sm:grid-cols-2 lg:grid-cols-3"
       >
-        {c.label}
-      </TabsTrigger>
-    ))}
-  </TabsList>
+        <AnimatePresence mode="popLayout">
+          {list.map((project) => (
+            <ProjectCard key={project.id} project={project} reduced={!!reduced} />
+          ))}
+        </AnimatePresence>
+      </motion.ul>
 
-  {categories.map((c) => (
-    <TabsContent key={c.key} value={c.key} />
-  ))}
-</Tabs>
-
-
-      <motion.div
-        className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3"
-        initial="hidden"
-        animate="show"
-        variants={{
-          hidden: {},
-          show: { transition: { staggerChildren: 0.06 } },
-        }}
-      >
-        {list.map((p) => (
-          <ProjectCard key={p.id} project={p} />
-        ))}
-      </motion.div>
+      {list.length === 0 && (
+        <p className="mt-10 text-center text-sm text-muted-foreground">
+          {projectsSection.emptyState}
+        </p>
+      )}
     </section>
   );
 }
 
-function ProjectCard({ project }: { project: Project }) {
+function ProjectCard({ project, reduced }: { project: Project; reduced: boolean }) {
   return (
-    <motion.div
-      variants={{
-        hidden: { opacity: 0, y: 20 },
-        show: { opacity: 1, y: 0 },
-      }}
+    <motion.li
+      layout={!reduced}
+      initial={{ opacity: 0, y: reduced ? 0 : 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: reduced ? 0 : -8 }}
+      transition={{ duration: reduced ? 0 : 0.35, ease: EASE }}
+      className="surface group flex flex-col overflow-hidden"
     >
-      <Card className="overflow-hidden group border-zinc-200 dark:border-zinc-800">
-        <div className="relative aspect-[16/10] overflow-hidden">
-          <Image
-            src={project.cover}
-            alt={`Aperçu du projet ${project.title}`}
-            fill
-            className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-            sizes="(min-width: 1280px) 33vw, (min-width: 640px) 50vw, 100vw"
-            priority={false}
-          />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-          <div className="absolute left-3 top-3 flex gap-2">
-            <Badge variant="secondary">{project.year}</Badge>
-            <Badge>{labelFromCategory(project.category)}</Badge>
-          </div>
+      <div className="relative aspect-[16/10] overflow-hidden border-b border-border bg-muted">
+        <Image
+          src={project.cover}
+          alt={`Aperçu du projet ${project.title}`}
+          fill
+          className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+          sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+        />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/80 via-background/10 to-transparent" />
+        <div className="absolute left-3 top-3 flex flex-wrap gap-2">
+          <span className="rounded-md border border-border bg-background/80 px-2 py-0.5 font-mono text-[0.7rem] text-muted-foreground backdrop-blur">
+            {project.year}
+          </span>
+          <span className="rounded-md border border-brand/40 bg-brand/10 px-2 py-0.5 font-mono text-[0.7rem] text-brand backdrop-blur">
+            {projectCategoryLabels[project.category]}
+          </span>
         </div>
+      </div>
 
-        <CardHeader>
-          <h3 className="text-xl font-semibold leading-tight">{project.title}</h3>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            {project.description}
-          </p>
-        </CardHeader>
+      <div className="flex flex-1 flex-col p-5">
+        <h3 className="text-base font-semibold leading-snug sm:text-lg">{project.title}</h3>
+        <p className="mt-2 text-pretty text-sm leading-relaxed text-muted-foreground">
+          {project.description}
+        </p>
 
-        <CardContent className="flex flex-wrap gap-2">
-          {project.stack.map((t) => (
-            <Badge key={t} variant="outline" className="font-normal">
-              {t}
-            </Badge>
+        <ul className="mt-4 flex flex-wrap gap-1.5">
+          {project.stack.map((tech) => (
+            <li
+              key={tech}
+              className="rounded border border-border px-2 py-0.5 font-mono text-[0.7rem] text-muted-foreground"
+            >
+              {tech}
+            </li>
           ))}
-        </CardContent>
+        </ul>
 
-        <CardFooter className="flex items-center gap-2">
-          {project.links.demo && (
-            <Button asChild>
-              <Link href={project.links.demo} target="_blank" aria-label={`Ouvrir la démo de ${project.title}`}>
-                Demo
-              </Link>
-            </Button>
-          )}
+        <div className="mt-auto flex flex-wrap items-center gap-4 pt-5">
           {project.links.case && (
-            <Button asChild variant="secondary">
-              <Link href={project.links.case} aria-label={`Lire l’étude de cas de ${project.title}`}>
-                Étude de cas
-              </Link>
-            </Button>
+            <CardLink href={project.links.case} label={projectsSection.actions.case} />
+          )}
+          {project.links.demo && (
+            <CardLink href={project.links.demo} label={projectsSection.actions.demo} external />
           )}
           {project.links.github && (
-            <Button asChild variant="outline">
-              <Link href={project.links.github} target="_blank" aria-label={`Voir le code de ${project.title} sur GitHub`}>
-                Code
-              </Link>
-            </Button>
+            <CardLink
+              href={project.links.github}
+              label={projectsSection.actions.github}
+              external
+              icon="github"
+            />
           )}
-        </CardFooter>
-      </Card>
-    </motion.div>
+        </div>
+      </div>
+    </motion.li>
   );
 }
 
-function labelFromCategory(c: Project["category"]) {
-  switch (c) {
-    case "front":
-      return "Front-end";
-    case "fullstack":
-      return "Full stack";
-    case "tooling":
-      return "Tooling";
-    case "jeu":
-        return "Jeu-vidéo";
-  }
+function CardLink({
+  href,
+  label,
+  external = false,
+  icon,
+}: {
+  href: string;
+  label: string;
+  external?: boolean;
+  icon?: "github";
+}) {
+  return (
+    <Link
+      href={href}
+      {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      className="group/link inline-flex items-center gap-1.5 text-sm font-medium text-foreground/80 transition-colors hover:text-brand"
+    >
+      {icon === "github" ? <Github className="size-3.5" /> : null}
+      {label}
+      <ArrowUpRight className="size-3.5 transition-transform group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5" />
+    </Link>
+  );
 }
